@@ -12,6 +12,7 @@ import { exportDatasetsToExcel, ExportDataset, ExportResult } from "../utils/exc
 interface DeviceState {
   devices: Device[];
   selectedDeviceIds: string[];
+  sumIncludedDeviceIds: string[];
   activeDeviceId: string | null;
   dateRange: { startTs: number; endTs: number };
   deviceRanges: Record<string, DateRange>;
@@ -34,6 +35,7 @@ interface DeviceState {
   addManualDevice: (ip: string) => Promise<void>;
   removeManualDevice: (deviceId: string) => Promise<void>;
   toggleDeviceSelection: (deviceId: string) => void;
+  toggleSumInclusion: (deviceId: string) => void;
 
   toggleLinkDevice: (deviceId: string, isLinked: boolean) => Promise<void>;
   renameDevice: (deviceId: string, newName: string) => Promise<void>;
@@ -77,6 +79,7 @@ const PRESET_SECONDS_MAP: Record<string, number> = {
 export const useDeviceStore = create<DeviceState>((set, get) => ({
   devices: [],
   selectedDeviceIds: [],
+  sumIncludedDeviceIds: [],
   activeDeviceId: null,
   dateRange: {
     startTs: nowSec - sevenDaysSec,
@@ -123,7 +126,12 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       // Seleccionar automáticamente los vinculados
       const linked = list.filter((d) => d.is_linked || d.is_manual);
       if (linked.length > 0 && get().selectedDeviceIds.length === 0) {
-        set({ selectedDeviceIds: linked.map((d) => d.id), activeDeviceId: linked[0].id });
+        const linkedIds = linked.map((d) => d.id);
+        set({
+          selectedDeviceIds: linkedIds,
+          sumIncludedDeviceIds: linkedIds,
+          activeDeviceId: linked[0].id,
+        });
         get().loadSamples();
       }
     } catch (e: any) {
@@ -151,9 +159,11 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
       await service.removeManualDevice(deviceId);
       const updatedList = get().devices.filter((d) => d.id !== deviceId);
       const updatedSelected = get().selectedDeviceIds.filter((id) => id !== deviceId);
+      const updatedSum = get().sumIncludedDeviceIds.filter((id) => id !== deviceId);
       set({
         devices: updatedList,
         selectedDeviceIds: updatedSelected,
+        sumIncludedDeviceIds: updatedSum,
         activeDeviceId: updatedSelected.length > 0 ? updatedSelected[0] : null,
       });
       get().loadSamples();
@@ -179,8 +189,10 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
         await get().syncAndFetchSamples();
       } else {
         const updatedSelected = get().selectedDeviceIds.filter((id) => id !== deviceId);
+        const updatedSum = get().sumIncludedDeviceIds.filter((id) => id !== deviceId);
         set({
           selectedDeviceIds: updatedSelected,
+          sumIncludedDeviceIds: updatedSum,
           activeDeviceId: updatedSelected.length > 0 ? updatedSelected[0] : null,
         });
         get().loadSamples();
@@ -209,22 +221,40 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
 
 
   toggleDeviceSelection: (deviceId: string) => {
-    const current = get().selectedDeviceIds;
-    const exists = current.includes(deviceId);
-    const updated = exists
-      ? current.filter((id) => id !== deviceId)
-      : [...current, deviceId];
+    const currentSelected = get().selectedDeviceIds;
+    const currentSum = get().sumIncludedDeviceIds;
+    const exists = currentSelected.includes(deviceId);
+    const updatedSelected = exists
+      ? currentSelected.filter((id) => id !== deviceId)
+      : [...currentSelected, deviceId];
+    const updatedSum = exists
+      ? currentSum.filter((id) => id !== deviceId)
+      : currentSum.includes(deviceId)
+      ? currentSum
+      : [...currentSum, deviceId];
 
     set({
-      selectedDeviceIds: updated,
-      activeDeviceId: updated.length > 0 ? updated[0] : null,
+      selectedDeviceIds: updatedSelected,
+      sumIncludedDeviceIds: updatedSum,
+      activeDeviceId: updatedSelected.length > 0 ? updatedSelected[0] : null,
     });
     get().loadSamples();
+  },
+
+  toggleSumInclusion: (deviceId: string) => {
+    const currentSum = get().sumIncludedDeviceIds;
+    const exists = currentSum.includes(deviceId);
+    const updatedSum = exists
+      ? currentSum.filter((id) => id !== deviceId)
+      : [...currentSum, deviceId];
+
+    set({ sumIncludedDeviceIds: updatedSum });
   },
 
   selectSingleDevice: (deviceId: string) => {
     set({
       selectedDeviceIds: [deviceId],
+      sumIncludedDeviceIds: [deviceId],
       activeDeviceId: deviceId,
     });
     get().loadSamples();

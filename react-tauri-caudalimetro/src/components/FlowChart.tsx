@@ -17,6 +17,7 @@ import {
 export const FlowChart: React.FC = () => {
   const {
     selectedDeviceIds,
+    sumIncludedDeviceIds,
     devices,
     samplesByDevice,
     dateRange,
@@ -71,18 +72,21 @@ export const FlowChart: React.FC = () => {
         return acc;
       }, 0);
 
-      totalVolume += devVolume;
+      if (sumIncludedDeviceIds.includes(dev.id)) {
+        totalVolume += devVolume;
+      }
 
       return {
         id: dev.id,
         name: dev.name,
         volume: devVolume,
         color: palette[idx % palette.length],
+        isSumIncluded: sumIncludedDeviceIds.includes(dev.id),
       };
     });
 
     return { intervalSummaryCards: cards, totalIntervalVolume: totalVolume };
-  }, [selectedDevices, samplesByDevice, dateRange]);
+  }, [selectedDevices, samplesByDevice, dateRange, sumIncludedDeviceIds]);
 
   // 2. Configuración de Gráficos Duales (Modo Vista Temporal)
   const chartOptionTemporal = useMemo(() => {
@@ -150,6 +154,83 @@ export const FlowChart: React.FC = () => {
         ]),
       };
     });
+
+    // Calcular serie "Suma Total" si hay más de 1 dispositivo seleccionado
+    const sumIncludedDevices = selectedDevices.filter((d) =>
+      sumIncludedDeviceIds.includes(d.id)
+    );
+
+    let sumBarSeries: any[] = [];
+    let sumLineSeries: any[] = [];
+
+    if (selectedDevices.length > 1 && sumIncludedDevices.length > 0) {
+      const timestampSumMap: Record<number, number> = {};
+      const timestampAccMap: Record<number, number> = {};
+
+      sumIncludedDevices.forEach((dev) => {
+        const samples = samplesByDevice[dev.id] || [];
+        samples.forEach((s) => {
+          if (s.timestamp < dateRange.startTs || s.timestamp > dateRange.endTs) return;
+          timestampSumMap[s.timestamp] = (timestampSumMap[s.timestamp] || 0) + s.volume;
+          timestampAccMap[s.timestamp] =
+            (timestampAccMap[s.timestamp] || 0) + (s.monthly_accumulated ?? s.volume);
+        });
+      });
+
+      const sortedTimestamps = Object.keys(timestampSumMap)
+        .map(Number)
+        .sort((a, b) => a - b);
+
+      const purpleColor = "#8b5cf6";
+
+      sumBarSeries = [
+        {
+          name: "Suma Total",
+          type: "bar",
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          barMaxWidth: 14,
+          itemStyle: {
+            color: purpleColor,
+            borderRadius: [3, 3, 0, 0],
+          },
+          data: sortedTimestamps.map((ts) => [ts * 1000, timestampSumMap[ts]]),
+        },
+      ];
+
+      sumLineSeries = [
+        {
+          name: "Suma Total",
+          type: "line",
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+          showSymbol: false,
+          smooth: false,
+          lineStyle: {
+            width: 3,
+            color: purpleColor,
+            type: "dashed",
+          },
+          itemStyle: {
+            color: purpleColor,
+          },
+          areaStyle: {
+            color: {
+              type: "linear",
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: `${purpleColor}35` },
+                { offset: 1, color: `${purpleColor}05` },
+              ],
+            },
+          },
+          data: sortedTimestamps.map((ts) => [ts * 1000, timestampAccMap[ts]]),
+        },
+      ];
+    }
 
     return {
       backgroundColor: cardBg,
@@ -270,9 +351,14 @@ export const FlowChart: React.FC = () => {
           xAxisIndex: [0, 1],
         },
       ],
-      series: [...intervalBarSeries, ...accumulatedLineSeries],
+      series: [
+        ...intervalBarSeries,
+        ...sumBarSeries,
+        ...accumulatedLineSeries,
+        ...sumLineSeries,
+      ],
     };
-  }, [selectedDevices, samplesByDevice, dateRange, isDarkMode]);
+  }, [selectedDevices, sumIncludedDeviceIds, samplesByDevice, dateRange, isDarkMode]);
 
   // 3. Determinación de agrupamiento (Semanal si el rango < 3 meses / 90 días, Mensual en caso contrario)
   const isWeekly = useMemo(() => {
@@ -388,6 +474,37 @@ export const FlowChart: React.FC = () => {
       };
     });
 
+    // Agregar serie "Suma Total" en el gráfico de barras agrupadas
+    const sumIncludedDevices = selectedDevices.filter((d) =>
+      sumIncludedDeviceIds.includes(d.id)
+    );
+
+    let sumGroupedSeries: any[] = [];
+    if (selectedDevices.length > 1 && sumIncludedDevices.length > 0) {
+      const sumData = sortedGroupKeys.map((k) => {
+        let periodSum = 0;
+        sumIncludedDevices.forEach((dev) => {
+          periodSum += groupMap[k]?.[dev.id] || 0;
+        });
+        return periodSum;
+      });
+
+      const purpleColor = "#8b5cf6";
+      sumGroupedSeries = [
+        {
+          name: "Suma Total",
+          type: "bar",
+          barMaxWidth: 24,
+          barGap: "15%",
+          itemStyle: {
+            color: purpleColor,
+            borderRadius: [4, 4, 0, 0],
+          },
+          data: sumData,
+        },
+      ];
+    }
+
     const yAxisName = isWeekly ? "Acumulado Semanal (Litros)" : "Acumulado Mensual (Litros)";
 
     return {
@@ -446,9 +563,9 @@ export const FlowChart: React.FC = () => {
         axisLabel: { color: mutedColor },
         splitLine: { lineStyle: { color: gridColor, type: "dashed" } },
       },
-      series,
+      series: [...series, ...sumGroupedSeries],
     };
-  }, [selectedDevices, samplesByDevice, dateRange, isWeekly, isDarkMode]);
+  }, [selectedDevices, sumIncludedDeviceIds, samplesByDevice, dateRange, isWeekly, isDarkMode]);
 
   const hasSamples = selectedDevices.some(
     (dev) => (samplesByDevice[dev.id] || []).length > 0
@@ -529,7 +646,8 @@ export const FlowChart: React.FC = () => {
               <span className="truncate">Total Acumulado</span>
             </div>
             <div className="text-base font-extrabold text-[var(--text-main)] mt-1 font-mono">
-              {totalIntervalVolume.toLocaleString()} <span className="text-xs font-normal text-[var(--text-muted)] font-sans">L</span>
+              {totalIntervalVolume.toLocaleString()}{" "}
+              <span className="text-xs font-normal text-[var(--text-muted)] font-sans">L</span>
             </div>
           </div>
 
@@ -537,17 +655,27 @@ export const FlowChart: React.FC = () => {
           {intervalSummaryCards.map((card) => (
             <div
               key={card.id}
-              className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-2.5 flex flex-col justify-between shadow-2xs"
+              className={`bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-2.5 flex flex-col justify-between shadow-2xs transition-all ${
+                !card.isSumIncluded && selectedDeviceIds.length > 2 ? "opacity-70" : ""
+              }`}
             >
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)] truncate">
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: card.color }}
-                />
-                <span className="truncate">{card.name}</span>
+              <div className="flex items-center justify-between gap-1 text-[11px] font-semibold text-[var(--text-muted)] truncate">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: card.color }}
+                  />
+                  <span className="truncate">{card.name}</span>
+                </div>
+                {!card.isSumIncluded && selectedDeviceIds.length > 2 && (
+                  <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded shrink-0">
+                    Sin Suma
+                  </span>
+                )}
               </div>
               <div className="text-base font-extrabold text-[var(--text-main)] mt-1 font-mono">
-                {card.volume.toLocaleString()} <span className="text-xs font-normal text-[var(--text-muted)] font-sans">L</span>
+                {card.volume.toLocaleString()}{" "}
+                <span className="text-xs font-normal text-[var(--text-muted)] font-sans">L</span>
               </div>
             </div>
           ))}

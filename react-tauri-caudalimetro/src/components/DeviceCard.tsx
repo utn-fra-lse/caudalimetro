@@ -1,16 +1,26 @@
 import React, { useState } from "react";
 import { Device } from "../core/types";
 import { useDeviceStore } from "../store/useDeviceStore";
-import { Wifi, WifiOff, CheckSquare, Square, Tag, Trash2, Link2Off, Plus, Pencil, Check, X } from "lucide-react";
+import { Wifi, WifiOff, CheckSquare, Square, Tag, Trash2, Link2Off, Plus, Pencil, Check, X, Sigma } from "lucide-react";
 
 interface Props {
   device: Device;
 }
 
 export const DeviceCard: React.FC<Props> = ({ device }) => {
-  const { selectedDeviceIds, toggleDeviceSelection, removeManualDevice, toggleLinkDevice, renameDevice } =
-    useDeviceStore();
+  const {
+    selectedDeviceIds,
+    sumIncludedDeviceIds,
+    toggleDeviceSelection,
+    toggleSumInclusion,
+    removeManualDevice,
+    toggleLinkDevice,
+    renameDevice,
+  } = useDeviceStore();
+
   const isSelected = selectedDeviceIds.includes(device.id);
+  const isSumIncluded = sumIncludedDeviceIds.includes(device.id);
+  const showSumToggle = isSelected && selectedDeviceIds.length > 2;
   const isLinked = device.is_linked || device.is_manual;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -151,15 +161,37 @@ export const DeviceCard: React.FC<Props> = ({ device }) => {
           {device.ip}:{device.port}
         </p>
 
-        <div className="flex items-center justify-between mt-2 pt-1 border-t border-[var(--border-color)]/40">
-          {device.is_manual ? (
-            <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] bg-[var(--bg-main)] px-1.5 py-0.5 rounded-xs">
-              <Tag className="w-2.5 h-2.5" />
-              <span>Manual</span>
-            </div>
-          ) : (
-            <div />
-          )}
+        <div className="flex items-center justify-between mt-2 pt-1 border-t border-[var(--border-color)]/40 gap-1">
+          <div className="flex items-center gap-1">
+            {device.is_manual && (
+              <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)] bg-[var(--bg-main)] px-1.5 py-0.5 rounded-xs">
+                <Tag className="w-2.5 h-2.5" />
+                <span>Manual</span>
+              </div>
+            )}
+            {showSumToggle && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSumInclusion(device.id);
+                }}
+                title={
+                  isSumIncluded
+                    ? "Incluido en la Suma Total (Click para excluir)"
+                    : "Excluido de la Suma Total (Click para incluir)"
+                }
+                className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-all cursor-pointer border ${
+                  isSumIncluded
+                    ? "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-400/50 shadow-2xs"
+                    : "bg-[var(--bg-main)] text-[var(--text-muted)] border-[var(--border-color)] opacity-60 hover:opacity-100"
+                }`}
+              >
+                <Sigma className="w-3 h-3" />
+                <span>Suma</span>
+              </button>
+            )}
+          </div>
 
           {isLinked ? (
             device.is_manual ? (
