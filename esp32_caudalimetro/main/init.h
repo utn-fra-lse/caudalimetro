@@ -18,7 +18,7 @@
 #define INTERVAL_MIN        0.25
 #define INTERVAL_SEC        (INTERVAL_MIN * 60) 
 
-#define CAUDAL_PIN          GPIO_NUM_34
+#define CAUDAL_PIN          GPIO_NUM_14
 #define DEBOUNCE_TIME_MS    20
 
 #define HTTP_PORT           80
