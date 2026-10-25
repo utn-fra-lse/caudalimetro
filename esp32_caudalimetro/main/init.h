@@ -18,7 +18,7 @@
 #define INTERVAL_MIN        0.25
 #define INTERVAL_SEC        (INTERVAL_MIN * 60) 
 
-#define CAUDAL_PIN          GPIO_NUM_14
+#define CAUDAL_PIN          GPIO_NUM_34
 #define DEBOUNCE_TIME_MS    20
 
 #define HTTP_PORT           80
@@ -31,10 +31,10 @@
 #define MDNS_INSTANCE_NAME  "ESP32 Caudalimetro"
 
 #define SLEEP_TIME_MS       500
-#define SNTP_ERROR_PIN      GPIO_NUM_2
+#define SNTP_ERROR_PIN      GPIO_NUM_32
 #define MAX_SNTP_SYNC_SEC   (3 * 60 * 60)
-#define WIFI_ERROR_PIN      GPIO_NUM_4
-#define FLASH_ERROR_PIN     GPIO_NUM_15
+#define WIFI_ERROR_PIN      GPIO_NUM_33
+#define FLASH_ERROR_PIN     GPIO_NUM_12
 
 typedef struct {
     gpio_num_t led_pin;

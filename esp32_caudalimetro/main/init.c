@@ -27,7 +27,7 @@ esp_err_t gpio_caudal_init(gpio_isr_t isr_handler)
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << CAUDAL_PIN),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = 1,               // Pull up
+        .pull_up_en = 0,               // Pull up
         .pull_down_en = 0,
         .intr_type = GPIO_INTR_NEGEDGE // Interrupción flanco descendente
     };
