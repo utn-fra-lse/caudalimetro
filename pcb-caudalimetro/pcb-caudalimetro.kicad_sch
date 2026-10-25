@@ -5158,7 +5158,7 @@
 	)
 	(wire
 		(pts
-			(xy 88.9 88.9) (xy 92.71 88.9)
+			(xy 88.9 53.34) (xy 92.71 53.34)
 		)
 		(stroke
 			(width 0)
@@ -5387,7 +5387,7 @@
 		(uuid "9068fb8e-8e84-40f6-a9d6-80953c84de37")
 	)
 	(label "CAUDALIMETRO"
-		(at 92.71 88.9 0)
+		(at 92.71 53.34 0)
 		(effects
 			(font
 				(size 1.27 1.27)
